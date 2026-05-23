@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 import type { Socket } from "socket.io-client";
@@ -12,9 +12,9 @@ import type { Question, SessionStatus } from "@/lib/types";
 export default function PlayPage({
   params,
 }: {
-  params: Promise<{ participantId: string }>;
+  params: { participantId: string };
 }) {
-  const { participantId } = use(params);
+  const { participantId } = params;
   const router = useRouter();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [status, setStatus] = useState<SessionStatus>("waiting");

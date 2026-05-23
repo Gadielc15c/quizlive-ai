@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { use, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Socket } from "socket.io-client";
 import { api, getToken } from "@/lib/api";
 import { createLiveSocket } from "@/lib/socket";
@@ -12,9 +12,9 @@ import type { LiveProgress, QuizSession } from "@/lib/types";
 export default function LiveSessionPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }) {
-  const { id } = use(params);
+  const { id } = params;
   const router = useRouter();
   const [session, setSession] = useState<QuizSession | null>(null);
   const [live, setLive] = useState<LiveProgress | null>(null);

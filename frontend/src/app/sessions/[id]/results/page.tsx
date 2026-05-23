@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { use, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { api, getToken } from "@/lib/api";
 import { Header } from "@/components/Header";
 import type { Participant, SessionResults } from "@/lib/types";
@@ -9,9 +9,9 @@ import type { Participant, SessionResults } from "@/lib/types";
 export default function ResultsPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }) {
-  const { id } = use(params);
+  const { id } = params;
   const router = useRouter();
   const [results, setResults] = useState<SessionResults | null>(null);
   const [names, setNames] = useState<Record<string, string>>({});
