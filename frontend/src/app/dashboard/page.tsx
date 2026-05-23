@@ -372,14 +372,20 @@ export default function DashboardPage() {
                   >
                     Finalizar
                   </button>
-                  <a
-                    className="ml-auto rounded-md border px-3 py-2 text-sm"
-                    href={`/sessions/${selectedSession?._id}/live`}
-                    rel="noopener noreferrer"
-                    target="_blank"
-                  >
-                    Panel en vivo
-                  </a>
+                  {selectedSession?._id ? (
+                    <a
+                      className="ml-auto rounded-md border px-3 py-2 text-sm"
+                      href={`/sessions/${selectedSession._id}/live`}
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >
+                      Panel en vivo
+                    </a>
+                  ) : (
+                    <span className="ml-auto cursor-not-allowed rounded-md border px-3 py-2 text-sm opacity-40">
+                      Panel en vivo
+                    </span>
+                  )}
                 </div>
               </div>
 

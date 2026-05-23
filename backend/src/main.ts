@@ -2,6 +2,7 @@ import "reflect-metadata";
 import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
+import { MongooseCastErrorFilter } from "./common/mongoose-exception.filter";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -99,6 +100,7 @@ async function bootstrap() {
     },
     credentials: true,
   });
+  app.useGlobalFilters(new MongooseCastErrorFilter());
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
