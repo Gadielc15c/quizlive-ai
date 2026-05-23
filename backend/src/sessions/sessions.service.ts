@@ -116,6 +116,15 @@ export class SessionsService {
     };
   }
 
+  async getSessionMeta(sessionId: string): Promise<{ durationMinutes?: number; startedAt?: string }> {
+    const session = await this.findOne(sessionId);
+    const quiz = await this.quizModel.findById(session.quizId).select("durationMinutes").exec();
+    return {
+      durationMinutes: quiz?.durationMinutes ?? undefined,
+      startedAt: session.startedAt?.toISOString(),
+    };
+  }
+
   private generateSessionCode() {
     const chunk = randomBytes(2).toString("hex").toUpperCase();
     const chunk2 = randomBytes(2).toString("hex").toUpperCase();

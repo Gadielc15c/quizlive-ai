@@ -70,11 +70,17 @@ export class ParticipantsService {
       ? await this.questionsService.findByQuiz(session.quizId)
       : [];
 
+    const meta = canSeeQuestions
+      ? await this.sessionsService.getSessionMeta(participant.sessionId)
+      : {};
+
     return {
       participantId,
       sessionId: String(session._id),
       quizId: session.quizId,
       sessionStatus: session.status,
+      durationMinutes: (meta as { durationMinutes?: number }).durationMinutes,
+      startedAt: (meta as { startedAt?: string }).startedAt,
       questions: questions.map((question) => this.toStudentQuestion(question)),
     };
   }

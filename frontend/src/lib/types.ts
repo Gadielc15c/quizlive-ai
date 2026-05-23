@@ -87,6 +87,8 @@ export interface SessionQuestions {
   sessionStatus: SessionStatus;
   sessionId?: string;
   quizId?: string;
+  durationMinutes?: number;
+  startedAt?: string;
   questions: Question[];
 }
 

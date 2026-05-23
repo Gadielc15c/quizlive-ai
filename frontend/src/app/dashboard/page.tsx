@@ -75,10 +75,23 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [backendOnline, setBackendOnline] = useState(true);
+  const [sessionAction, setSessionAction] = useState(false);
+  const [resultsPage, setResultsPage] = useState(1);
+
+  const RESULTS_PER_PAGE = 15;
 
   useEffect(() => {
     void loadQuizzes();
   }, []);
+
+  useEffect(() => {
+    if (!selectedSession) return;
+    const interval = setInterval(() => {
+      void openSession(selectedSession);
+    }, 5000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSession?._id]);
 
   const loadQuizzes = async () => {
     setLoading(true);
@@ -145,8 +158,37 @@ export default function DashboardPage() {
     }
   };
 
+  const controlSession = async (action: "start" | "pause" | "end") => {
+    if (!selectedSession) return;
+    setSessionAction(true);
+    setError("");
+    try {
+      const headers = {
+        ...(await getTeacherAuthHeaders(apiUrl)),
+        "Content-Type": "application/json",
+      };
+      const res = await fetch(`${apiUrl}/sessions/${selectedSession._id}/${action}`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) throw new Error(`No se pudo ${action} la sesion`);
+      const updated = (await res.json()) as Session;
+      setSelectedSession(updated);
+      setSessions((current) =>
+        current.map((s) => (s._id === updated._id ? updated : s)),
+      );
+      await openSession(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error controlando sesion");
+    } finally {
+      setSessionAction(false);
+    }
+  };
+
   const openSession = async (session: Session) => {
     setSelectedSession(session);
+    setResultsPage(1);
     const headers = await getTeacherAuthHeaders(apiUrl);
     const [participantsRes, resultsRes, accessRes] = await Promise.all([
       fetch(`${apiUrl}/participant/session/${session._id}`, { headers }),
@@ -264,6 +306,54 @@ export default function DashboardPage() {
               </div>
 
               <div className="rounded-lg border bg-white p-5 shadow-sm">
+                <div className="mb-4 flex flex-wrap items-center gap-2">
+                  <h3 className="mr-auto font-semibold">Control de sesion</h3>
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                    selectedSession?.status === "live" ? "bg-emerald-100 text-emerald-700"
+                    : selectedSession?.status === "paused" ? "bg-amber-100 text-amber-700"
+                    : selectedSession?.status === "ended" ? "bg-slate-200 text-slate-600"
+                    : "bg-slate-100 text-slate-600"
+                  }`}>
+                    {selectedSession?.status ?? "waiting"}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    className="rounded-md bg-emerald-600 px-3 py-2 text-sm text-white disabled:opacity-40"
+                    disabled={selectedSession?.status === "live" || selectedSession?.status === "ended" || sessionAction}
+                    onClick={() => void controlSession("start")}
+                    type="button"
+                  >
+                    Iniciar
+                  </button>
+                  <button
+                    className="rounded-md bg-amber-500 px-3 py-2 text-sm text-white disabled:opacity-40"
+                    disabled={selectedSession?.status !== "live" || sessionAction}
+                    onClick={() => void controlSession("pause")}
+                    type="button"
+                  >
+                    Pausar
+                  </button>
+                  <button
+                    className="rounded-md bg-red-600 px-3 py-2 text-sm text-white disabled:opacity-40"
+                    disabled={selectedSession?.status === "ended" || sessionAction}
+                    onClick={() => void controlSession("end")}
+                    type="button"
+                  >
+                    Finalizar
+                  </button>
+                  <a
+                    className="ml-auto rounded-md border px-3 py-2 text-sm"
+                    href={`/sessions/${selectedSession?._id}/live`}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    Panel en vivo
+                  </a>
+                </div>
+              </div>
+
+              <div className="rounded-lg border bg-white p-5 shadow-sm">
                 <h3 className="font-semibold">Participantes y calificaciones</h3>
                 {results?.summary ? (
                   <div className="mt-4 grid gap-3 sm:grid-cols-5">
@@ -285,27 +375,54 @@ export default function DashboardPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {participants.map((participant) => {
-                        const score = results?.results.find((item) => item.participantId === participant._id);
-                        return (
-                          <tr key={participant._id}>
-                            <td className="border p-2">{score?.name ?? participant.name}</td>
-                            <td className="border p-2">{score?.studentCode ?? participant.studentCode ?? "-"}</td>
-                            <td className="border p-2">{score?.status ?? participant.status}</td>
-                            <td className="border p-2">
-                              {score
-                                ? `${score.score}/${score.maxScore} (${score.percentage ?? 0}%)`
-                                : "Pendiente"}
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {participants
+                        .slice((resultsPage - 1) * RESULTS_PER_PAGE, resultsPage * RESULTS_PER_PAGE)
+                        .map((participant) => {
+                          const score = results?.results.find((item) => item.participantId === participant._id);
+                          return (
+                            <tr key={participant._id}>
+                              <td className="border p-2">{score?.name ?? participant.name}</td>
+                              <td className="border p-2">{score?.studentCode ?? participant.studentCode ?? "-"}</td>
+                              <td className="border p-2">{score?.status ?? participant.status}</td>
+                              <td className="border p-2">
+                                {score
+                                  ? `${score.score}/${score.maxScore} (${score.percentage ?? 0}%)`
+                                  : "Pendiente"}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       {!participants.length ? (
                         <tr><td className="border p-3 text-slate-500" colSpan={4}>Sin participantes aun.</td></tr>
                       ) : null}
                     </tbody>
                   </table>
                 </div>
+                {participants.length > RESULTS_PER_PAGE && (
+                  <div className="mt-4 flex items-center justify-between text-sm">
+                    <span className="text-slate-500">
+                      {(resultsPage - 1) * RESULTS_PER_PAGE + 1}–{Math.min(resultsPage * RESULTS_PER_PAGE, participants.length)} de {participants.length}
+                    </span>
+                    <div className="flex gap-2">
+                      <button
+                        className="rounded border px-3 py-1 disabled:opacity-40"
+                        disabled={resultsPage === 1}
+                        onClick={() => setResultsPage((p) => p - 1)}
+                        type="button"
+                      >
+                        Anterior
+                      </button>
+                      <button
+                        className="rounded border px-3 py-1 disabled:opacity-40"
+                        disabled={resultsPage * RESULTS_PER_PAGE >= participants.length}
+                        onClick={() => setResultsPage((p) => p + 1)}
+                        type="button"
+                      >
+                        Siguiente
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           ) : (

@@ -22,29 +22,48 @@ export default function PlayPage({
   const [saved, setSaved] = useState<Record<string, boolean>>({});
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [durationMinutes, setDurationMinutes] = useState<number | undefined>(undefined);
+  const [startedAt, setStartedAt] = useState<string | undefined>(undefined);
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
   const socketRef = useRef<Socket | null>(null);
+
+  // Restore answers from sessionStorage on mount
+  useEffect(() => {
+    const saved = sessionStorage.getItem("play_answers_" + participantId);
+    if (saved) {
+      try {
+        setAnswers(JSON.parse(saved) as Record<string, unknown>);
+      } catch {
+        // ignore parse errors
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [participantId]);
 
   async function load() {
     try {
       const data = await api.participantQuestions(participantId);
       setStatus(data.sessionStatus);
       setQuestions(data.sessionStatus === "ended" ? [] : data.questions);
+      if (data.durationMinutes !== undefined) setDurationMinutes(data.durationMinutes);
+      if (data.startedAt !== undefined) setStartedAt(data.startedAt);
     } catch (err) {
       setError((err as Error).message);
     }
   }
 
   useEffect(() => {
-    load();
+    void load();
     const socket = createLiveSocket();
     socketRef.current = socket;
     socket.emit("participant:join", { sessionId: "", participantId });
-    socket.on("session:started", () => load());
+    socket.on("session:started", () => { void load(); });
     socket.on("session:ended", () => {
       setStatus("ended");
       setQuestions([]);
     });
-    socket.on("question:changed", () => load());
+    socket.on("question:changed", () => { void load(); });
+    socket.on("reconnect", () => { void load(); });
 
     const hb = setInterval(() => {
       api.participantQuestions(participantId).then(
@@ -63,6 +82,39 @@ export default function PlayPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [participantId]);
 
+  // Timer countdown
+  useEffect(() => {
+    if (!durationMinutes || !startedAt) {
+      setSecondsLeft(null);
+      return;
+    }
+
+    const endsAt = new Date(startedAt).getTime() + durationMinutes * 60000;
+
+    const tick = () => {
+      const left = Math.max(0, Math.floor((endsAt - Date.now()) / 1000));
+      setSecondsLeft(left);
+    };
+
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [durationMinutes, startedAt]);
+
+  function formatTime(secs: number): string {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  }
+
+  function updateAnswers(updater: (prev: Record<string, unknown>) => Record<string, unknown>) {
+    setAnswers((prev) => {
+      const next = updater(prev);
+      sessionStorage.setItem("play_answers_" + participantId, JSON.stringify(next));
+      return next;
+    });
+  }
+
   async function saveAnswer(q: Question) {
     try {
       await api.answer(participantId, q._id, { value: answers[q._id] });
@@ -77,6 +129,7 @@ export default function PlayPage({
   }
 
   async function finish() {
+    if (!window.confirm("¿Entregar examen? Esta accion no se puede deshacer.")) return;
     try {
       await api.submit(participantId);
       socketRef.current?.emit("participant:answer_submit", { participantId });
@@ -104,7 +157,18 @@ export default function PlayPage({
     <main className="mx-auto max-w-2xl px-6 py-8">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">Evaluacion</h1>
-        <StatusBadge status={status} />
+        <div className="flex items-center gap-3">
+          {secondsLeft !== null && (
+            <span
+              className={`font-mono text-sm font-semibold ${
+                secondsLeft < 60 ? "text-red-600" : "text-slate-700"
+              }`}
+            >
+              {formatTime(secondsLeft)}
+            </span>
+          )}
+          <StatusBadge status={status} />
+        </div>
       </div>
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
@@ -142,7 +206,7 @@ export default function PlayPage({
                         name={q._id}
                         checked={answers[q._id] === o.id}
                         onChange={() =>
-                          setAnswers((a) => ({ ...a, [q._id]: o.id }))
+                          updateAnswers((a) => ({ ...a, [q._id]: o.id }))
                         }
                       />
                       {o.label}
@@ -161,7 +225,7 @@ export default function PlayPage({
                           name={q._id}
                           checked={answers[q._id] === opt.v}
                           onChange={() =>
-                            setAnswers((a) => ({ ...a, [q._id]: opt.v }))
+                            updateAnswers((a) => ({ ...a, [q._id]: opt.v }))
                           }
                         />
                         {opt.l}
@@ -178,7 +242,7 @@ export default function PlayPage({
                     rows={q.type === "short_answer" ? 1 : 4}
                     value={(answers[q._id] as string) ?? ""}
                     onChange={(e) =>
-                      setAnswers((a) => ({ ...a, [q._id]: e.target.value }))
+                      updateAnswers((a) => ({ ...a, [q._id]: e.target.value }))
                     }
                   />
                 )}
@@ -186,7 +250,7 @@ export default function PlayPage({
 
               <button
                 className="btn-ghost mt-3 inline-flex items-center gap-1.5"
-                onClick={() => saveAnswer(q)}
+                onClick={() => void saveAnswer(q)}
                 disabled={status === "paused"}
               >
                 {saved[q._id] ? (
@@ -201,7 +265,7 @@ export default function PlayPage({
           ))}
 
           {questions.length > 0 && (
-            <button className="btn-primary w-full" onClick={finish}>
+            <button className="btn-primary w-full" onClick={() => void finish()}>
               Enviar todo
             </button>
           )}
