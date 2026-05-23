@@ -157,3 +157,18 @@ El backend califica con IA:
 - `essay`
 - `prompt_evaluation`
 
+## Renderer estudiante
+
+La pantalla `/play/:participantId` renderiza widgets por `type` usando `metadata` publico:
+
+- `multiple_choice`: envia `{ "value": "A" }`
+- `multiple_select`: envia `{ "values": ["A", "C"] }`
+- `true_false`: envia `{ "value": "true" }`
+- `short_answer` / `essay`: envia `{ "value": "texto" }`
+- `fill_blank`: requiere `[[blank_id]]` en `body` y envia `{ "blanks": [{ "id": "blank_id", "value": "texto" }] }`
+- `ordering` / `drag_drop`: requiere `metadata.items` o `metadata.blocks` y envia `{ "ordered": ["item1", "item2"] }`
+- `matching`: requiere `metadata.pairs` y envia `{ "pairs": [{ "left": "CPU", "right": "Procesa instrucciones" }] }`
+- `matrix_scale`: requiere `metadata.rows` y `metadata.cols`; envia `{ "matrix": [{ "row": "Word", "value": "Medio" }] }`
+- `prompt_evaluation`: requiere `metadata.variables`; envia `{ "answer": "...", "usedVariables": ["cliente"], "renderedPrompt": "..." }`
+
+El frontend no recibe `correctAnswer` en endpoints publicos. Por eso todo dato necesario para mostrar el widget debe estar en `metadata`, `options`, `title`, `body` o `instructions`.

@@ -7,6 +7,11 @@ import type { Socket } from "socket.io-client";
 import { api } from "@/lib/api";
 import { createLiveSocket } from "@/lib/socket";
 import { StatusBadge } from "@/components/StatusBadge";
+import {
+  getInitialAnswer,
+  StudentAnswerWidget,
+  type AnswerValue,
+} from "@/components/StudentAnswerWidget";
 import type { Question, SessionStatus } from "@/lib/types";
 
 export default function PlayPage({
@@ -18,7 +23,7 @@ export default function PlayPage({
   const router = useRouter();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [status, setStatus] = useState<SessionStatus>("waiting");
-  const [answers, setAnswers] = useState<Record<string, unknown>>({});
+  const [answers, setAnswers] = useState<Record<string, AnswerValue>>({});
   const [saved, setSaved] = useState<Record<string, boolean>>({});
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +37,7 @@ export default function PlayPage({
     const saved = sessionStorage.getItem("play_answers_" + participantId);
     if (saved) {
       try {
-        setAnswers(JSON.parse(saved) as Record<string, unknown>);
+        setAnswers(JSON.parse(saved) as Record<string, AnswerValue>);
       } catch {
         // ignore parse errors
       }
@@ -107,7 +112,9 @@ export default function PlayPage({
     return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   }
 
-  function updateAnswers(updater: (prev: Record<string, unknown>) => Record<string, unknown>) {
+  function updateAnswers(
+    updater: (prev: Record<string, AnswerValue>) => Record<string, AnswerValue>,
+  ) {
     setAnswers((prev) => {
       const next = updater(prev);
       sessionStorage.setItem("play_answers_" + participantId, JSON.stringify(next));
@@ -117,8 +124,18 @@ export default function PlayPage({
 
   async function saveAnswer(q: Question) {
     try {
-      await api.answer(participantId, q._id, { value: answers[q._id] });
+      const answer = answers[q._id] ?? getInitialAnswer(q);
+      if (!answer) {
+        setError("Completa la respuesta antes de guardarla.");
+        return;
+      }
+
+      await api.answer(participantId, q._id, answer);
+      if (!answers[q._id]) {
+        updateAnswers((current) => ({ ...current, [q._id]: answer }));
+      }
       setSaved((s) => ({ ...s, [q._id]: true }));
+      setError(null);
       socketRef.current?.emit("participant:answer_update", {
         participantId,
         questionId: q._id,
@@ -198,60 +215,18 @@ export default function PlayPage({
               <p className="text-sm text-slate-600">{q.body}</p>
 
               <div className="mt-3">
-                {q.type === "multiple_choice" &&
-                  q.options?.map((o) => (
-                    <label key={o.id} className="flex items-center gap-2 py-1">
-                      <input
-                        type="radio"
-                        name={q._id}
-                        checked={answers[q._id] === o.id}
-                        onChange={() =>
-                          updateAnswers((a) => ({ ...a, [q._id]: o.id }))
-                        }
-                      />
-                      {o.label}
-                    </label>
-                  ))}
-
-                {q.type === "true_false" && (
-                  <div className="flex gap-4">
-                    {[
-                      { v: true, l: "Verdadero" },
-                      { v: false, l: "Falso" },
-                    ].map((opt) => (
-                      <label key={opt.l} className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          name={q._id}
-                          checked={answers[q._id] === opt.v}
-                          onChange={() =>
-                            updateAnswers((a) => ({ ...a, [q._id]: opt.v }))
-                          }
-                        />
-                        {opt.l}
-                      </label>
-                    ))}
-                  </div>
-                )}
-
-                {(q.type === "short_answer" || q.type === "essay") && (
-                  <textarea
-                    className="input"
-                    rows={q.type === "short_answer" ? 1 : 4}
-                    value={(answers[q._id] as string) ?? ""}
-                    onChange={(e) =>
-                      updateAnswers((a) => ({ ...a, [q._id]: e.target.value }))
-                    }
-                  />
-                )}
-
-                {q.type === "prompt_evaluation" && (
-                  <PlayPromptEditor
-                    question={q}
-                    value={(answers[q._id] as Record<string, unknown>) ?? {}}
-                    onChange={(val) => updateAnswers((a) => ({ ...a, [q._id]: val }))}
-                  />
-                )}
+                <StudentAnswerWidget
+                  answer={answers[q._id]}
+                  disabled={status === "paused"}
+                  onChange={(answer) => {
+                    updateAnswers((current) => ({
+                      ...current,
+                      [q._id]: answer,
+                    }));
+                    setSaved((current) => ({ ...current, [q._id]: false }));
+                  }}
+                  question={q}
+                />
               </div>
 
               <button
@@ -281,81 +256,5 @@ export default function PlayPage({
         </div>
       )}
     </main>
-  );
-}
-
-function PlayPromptEditor({
-  question,
-  value,
-  onChange,
-}: {
-  question: Question;
-  value: Record<string, unknown>;
-  onChange: (val: Record<string, unknown>) => void;
-}) {
-  const variables = (question.metadata?.variables ?? {}) as Record<string, { value: unknown; type: string; description?: string }>;
-  const requiredVars = Array.isArray(question.metadata?.requiredVariables)
-    ? (question.metadata.requiredVariables as string[])
-    : [];
-  const [text, setText] = useState(String(value.answer ?? ""));
-  const keys = Object.keys(variables);
-
-  const usedVars = Array.from(new Set([...text.matchAll(/\{([a-zA-Z0-9_]+)\}/g)].map((m) => m[1])));
-  const missingRequired = requiredVars.filter((v) => !usedVars.includes(v));
-
-  const update = (next: string) => {
-    setText(next);
-    const used = Array.from(new Set([...next.matchAll(/\{([a-zA-Z0-9_]+)\}/g)].map((m) => m[1])));
-    const rendered = next.replace(/\{([a-zA-Z0-9_]+)\}/g, (_m, k: string) =>
-      variables[k] ? String(variables[k].value) : `{${k}}`,
-    );
-    onChange({ answer: next, usedVariables: used, renderedPrompt: rendered });
-  };
-
-  return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap gap-1.5">
-        {keys.map((key) => {
-          const isUsed = usedVars.includes(key);
-          const isRequired = requiredVars.includes(key);
-          return (
-            <button
-              className={`rounded border px-2 py-1 text-xs transition ${
-                isUsed ? "border-emerald-400 bg-emerald-50 text-emerald-700" : isRequired ? "border-amber-300 bg-amber-50 text-amber-700" : "bg-white"
-              }`}
-              key={key}
-              onClick={() => update(text ? `${text} {${key}}` : `{${key}}`)}
-              title={variables[key].description}
-              type="button"
-            >
-              <span className="font-mono">{`{${key}}`}</span>
-              {isRequired && !isUsed && <span className="ml-1 text-amber-500">*</span>}
-              {isUsed && <span className="ml-1">✓</span>}
-            </button>
-          );
-        })}
-      </div>
-
-      <textarea
-        className={`w-full rounded-lg border p-3 text-sm outline-none transition focus:ring-2 ${
-          missingRequired.length > 0 ? "border-amber-300 focus:ring-amber-100" : "border-slate-300 focus:border-brand focus:ring-brand/20"
-        }`}
-        onChange={(e) => update(e.target.value)}
-        placeholder="Escribe tu prompt. Haz clic en las variables de arriba para insertarlas."
-        rows={5}
-        value={text}
-      />
-
-      {missingRequired.length > 0 && (
-        <p className="text-xs text-amber-600">Faltan variables requeridas: {missingRequired.map((v) => `{${v}}`).join(", ")}</p>
-      )}
-
-      {text && missingRequired.length === 0 && (
-        <div className="rounded-md bg-slate-900 p-3">
-          <p className="mb-1 text-xs text-slate-400">Preview con valores reales</p>
-          <p className="whitespace-pre-wrap text-sm text-white">{text.replace(/\{([a-zA-Z0-9_]+)\}/g, (_m, k: string) => variables[k] ? String(variables[k].value) : `{${k}}`)}</p>
-        </div>
-      )}
-    </div>
   );
 }
