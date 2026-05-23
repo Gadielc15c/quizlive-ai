@@ -19,6 +19,7 @@ type Session = {
   sessionCode: string;
   status: string;
   quizId: string;
+  reviewAccessEnabled?: boolean;
 };
 
 type Participant = {
@@ -201,6 +202,35 @@ export default function DashboardPage() {
     if (accessRes.ok) setAccess((await accessRes.json()) as AccessData);
   };
 
+  const setReviewAccess = async (enabled: boolean) => {
+    if (!selectedSession) return;
+    setError("");
+    try {
+      const headers = {
+        ...(await getTeacherAuthHeaders(apiUrl)),
+        "Content-Type": "application/json",
+      };
+      const response = await fetch(
+        `${apiUrl}/sessions/${selectedSession._id}/review-access`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ enabled }),
+        },
+      );
+      if (!response.ok) throw new Error("No se pudo cambiar el acceso a revision");
+      const updated = (await response.json()) as Session;
+      setSelectedSession(updated);
+      setSessions((current) =>
+        current.map((session) =>
+          session._id === updated._id ? updated : session,
+        ),
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error cambiando revision");
+    }
+  };
+
   return (
     <main className="min-h-screen bg-[#f6f7f9] text-slate-950">
       <header className="border-b bg-white">
@@ -354,7 +384,24 @@ export default function DashboardPage() {
               </div>
 
               <div className="rounded-lg border bg-white p-5 shadow-sm">
-                <h3 className="font-semibold">Participantes y calificaciones</h3>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h3 className="font-semibold">Participantes y calificaciones</h3>
+                  <button
+                    className="rounded-md border px-3 py-2 text-sm disabled:opacity-50"
+                    disabled={selectedSession?.status !== "ended"}
+                    onClick={() => void setReviewAccess(!selectedSession?.reviewAccessEnabled)}
+                    type="button"
+                  >
+                    {selectedSession?.reviewAccessEnabled
+                      ? "Bloquear revision"
+                      : "Habilitar revision"}
+                  </button>
+                </div>
+                {selectedSession?.status !== "ended" ? (
+                  <p className="mt-2 text-sm text-slate-500">
+                    La revision de respuestas se habilita cuando la sesion finalice.
+                  </p>
+                ) : null}
                 {results?.summary ? (
                   <div className="mt-4 grid gap-3 sm:grid-cols-5">
                     <SessionInsight label="Promedio" value={`${results.summary.averagePercentage}%`} />

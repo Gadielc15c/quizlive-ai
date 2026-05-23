@@ -29,7 +29,9 @@ export class QuizSession {
 
   @Prop()
   endedAt?: Date;
+
+  @Prop({ default: false })
+  reviewAccessEnabled!: boolean;
 }
 
 export const QuizSessionSchema = SchemaFactory.createForClass(QuizSession);
-

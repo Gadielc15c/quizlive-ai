@@ -28,6 +28,7 @@ export class SessionsService {
       sessionCode,
       joinToken,
       status: SessionStatus.WAITING,
+      reviewAccessEnabled: false,
     });
   }
 
@@ -79,6 +80,7 @@ export class SessionsService {
     }
     session.status = SessionStatus.LIVE;
     session.startedAt = new Date();
+    session.reviewAccessEnabled = false;
     return session.save();
   }
 
@@ -114,6 +116,17 @@ export class SessionsService {
       tokenJoinUrl: `${appUrl}/join/${encodeURIComponent(session.joinToken)}`,
       qrUrl,
     };
+  }
+
+  async setReviewAccess(id: string, enabled: boolean) {
+    const session = await this.findOne(id);
+    if (enabled && session.status !== SessionStatus.ENDED) {
+      throw new BadRequestException(
+        "Solo se puede habilitar revision cuando la sesion finalizo",
+      );
+    }
+    session.reviewAccessEnabled = enabled;
+    return session.save();
   }
 
   async getSessionMeta(sessionId: string): Promise<{ durationMinutes?: number; startedAt?: string }> {

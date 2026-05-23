@@ -75,6 +75,15 @@ export default function LiveSessionPage({
     }
   }
 
+  async function setReviewAccess(enabled: boolean) {
+    try {
+      setSession(await api.setReviewAccess(id, enabled));
+      loadLive();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
   const participants = live?.participants ?? [];
   const total = live?.totalQuestions ?? 0;
   const answeredAny = participants.filter((p) => p.answeredCount > 0).length;
@@ -124,7 +133,22 @@ export default function LiveSessionPage({
           >
             Ver resultados
           </button>
+          <button
+            className="btn-ghost"
+            disabled={session?.status !== "ended"}
+            onClick={() => setReviewAccess(!session?.reviewAccessEnabled)}
+          >
+            {session?.reviewAccessEnabled
+              ? "Bloquear revision"
+              : "Habilitar revision"}
+          </button>
         </div>
+
+        {session?.status !== "ended" ? (
+          <p className="mt-3 text-sm text-slate-500">
+            La revision de respuestas se puede habilitar cuando la sesion finalice.
+          </p>
+        ) : null}
 
         <div className="mt-8 grid gap-4 sm:grid-cols-5">
           <Stat label="Conectados" value={participants.length} />

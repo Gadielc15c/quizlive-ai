@@ -14,13 +14,25 @@
 
 3. Resultado del estudiante:
 - `GET /api/participant/:id/result`
-- Retorna `score`, `maxScore`, `percentage`, `answers`, `totalQuestions`, `pendingGrading`, `gradingComplete`.
+- Retorna `score`, `maxScore`, `percentage`, `answers`, `totalQuestions`, `pendingGrading`, `gradingComplete`, `reviewAccessEnabled`.
 - `maxScore` sale del total de preguntas del examen, no solo de las respuestas enviadas.
 
 4. Preguntas del estudiante:
 - `GET /api/participant/:id/questions`
 - Retorna preguntas solo si la sesion esta `live` o `paused`.
 - Si la duracion ya vencio, el backend marca la sesion como `ended` y retorna `questions: []`.
+
+5. Acceso a revision:
+- `POST /api/sessions/:id/review-access`
+- Requiere JWT de docente/admin.
+- Body: `{ "enabled": true }` o `{ "enabled": false }`.
+- Solo permite habilitar revision cuando la sesion esta `ended`.
+
+6. Revision del estudiante:
+- `GET /api/participant/:id/review`
+- Si la revision no esta habilitada retorna `reviewAccessEnabled: false` e `items: []`.
+- Si esta habilitada retorna pregunta, respuesta enviada, puntaje, estado correcto/incorrecto y `aiInsight` cuando existe.
+- No retorna `correctAnswer`.
 
 ## Variables LLM agregadas
 
@@ -54,3 +66,4 @@ Para tipos auto-corregibles:
 - Ruta: `/join/[token]` registra al estudiante y redirige a `/play/[participantId]`.
 - `/join/[token]` no renderiza preguntas.
 - `/play/[participantId]` limpia preguntas cuando la sesion finaliza.
+- `/result/[participantId]` muestra calificacion siempre, pero el detalle de respuestas espera autorizacion del docente.

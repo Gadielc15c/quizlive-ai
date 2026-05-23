@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, getToken } from "@/lib/api";
 import { Header } from "@/components/Header";
-import type { Participant, SessionResults } from "@/lib/types";
+import type { Participant, QuizSession, SessionResults } from "@/lib/types";
 
 export default function ResultsPage({
   params,
@@ -13,6 +13,7 @@ export default function ResultsPage({
 }) {
   const { id } = params;
   const router = useRouter();
+  const [session, setSession] = useState<QuizSession | null>(null);
   const [results, setResults] = useState<SessionResults | null>(null);
   const [names, setNames] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -22,8 +23,9 @@ export default function ResultsPage({
       router.push("/login");
       return;
     }
-    Promise.all([api.sessionResults(id), api.sessionParticipants(id)])
-      .then(([r, ps]) => {
+    Promise.all([api.getSession(id), api.sessionResults(id), api.sessionParticipants(id)])
+      .then(([s, r, ps]) => {
+        setSession(s);
         setResults(r);
         const map: Record<string, string> = {};
         (ps as Participant[]).forEach((p) => (map[p._id] = p.name));
@@ -33,11 +35,36 @@ export default function ResultsPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  async function setReviewAccess(enabled: boolean) {
+    try {
+      setSession(await api.setReviewAccess(id, enabled));
+      setError(null);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
   return (
     <>
       <Header />
       <main className="mx-auto max-w-3xl px-6 py-8">
-        <h1 className="text-2xl font-bold">Resultados de la sesion</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-bold">Resultados de la sesion</h1>
+          <button
+            className="btn-ghost"
+            disabled={session?.status !== "ended"}
+            onClick={() => setReviewAccess(!session?.reviewAccessEnabled)}
+          >
+            {session?.reviewAccessEnabled
+              ? "Bloquear revision"
+              : "Habilitar revision"}
+          </button>
+        </div>
+        {session?.status !== "ended" ? (
+          <p className="mt-2 text-sm text-slate-500">
+            La revision se habilita despues de finalizar la sesion.
+          </p>
+        ) : null}
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
         {results && (
           <>

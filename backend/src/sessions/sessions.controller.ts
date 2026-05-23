@@ -59,6 +59,16 @@ export class SessionsController {
     return this.sessionsService.end(id);
   }
 
+  @Post("sessions/:id/review-access")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.TEACHER)
+  setReviewAccess(
+    @Param("id") id: string,
+    @Body() body: { enabled?: boolean },
+  ) {
+    return this.sessionsService.setReviewAccess(id, Boolean(body.enabled));
+  }
+
   @Get("sessions/:id/access")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.TEACHER)

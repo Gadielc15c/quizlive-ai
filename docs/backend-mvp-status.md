@@ -38,6 +38,7 @@ Sessions:
 - `POST /sessions/:id/start`
 - `POST /sessions/:id/pause`
 - `POST /sessions/:id/end`
+- `POST /sessions/:id/review-access`
 
 Participants:
 - `GET /join/:token`
@@ -51,6 +52,8 @@ Responses:
 - `POST /participant/:id/answer`
 - `POST /participant/:id/answer/:questionId`
 - `GET /participant/:id/responses`
+- `GET /participant/:id/result`
+- `GET /participant/:id/review`
 
 IA:
 - `POST /ai/generate-questions`
@@ -69,6 +72,10 @@ Reportes:
 - `POST /participant/:id/answer` solo acepta respuestas cuando la sesion esta `live`, el participante no entrego y la pregunta pertenece al quiz de la sesion.
 - Resultados de sesion usan el puntaje maximo total del examen. Preguntas sin respuesta cuentan como cero.
 - `GET /sessions/:id/live` incluye progreso, puntaje parcial y promedio de la sesion.
+- La revision detallada del estudiante queda bloqueada por defecto.
+- El docente habilita revision con `POST /sessions/:id/review-access` y body `{ "enabled": true }`.
+- La revision solo puede habilitarse cuando la sesion esta `ended`.
+- `GET /participant/:id/review` devuelve detalle por pregunta solo si `reviewAccessEnabled` esta activo.
 
 ## WebSocket
 

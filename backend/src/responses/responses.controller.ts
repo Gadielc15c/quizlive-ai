@@ -35,4 +35,9 @@ export class ResponsesController {
   getParticipantResult(@Param("id") participantId: string) {
     return this.responsesService.getParticipantResult(participantId);
   }
+
+  @Get("participant/:id/review")
+  getParticipantReview(@Param("id") participantId: string) {
+    return this.responsesService.getParticipantReview(participantId);
+  }
 }

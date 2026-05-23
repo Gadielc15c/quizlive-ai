@@ -76,6 +76,7 @@ export interface QuizSession {
   status: SessionStatus;
   startedAt?: string;
   endedAt?: string;
+  reviewAccessEnabled?: boolean;
 }
 
 export interface JoinResult {
@@ -168,6 +169,9 @@ export interface GenerateQuizResult {
 
 export interface ParticipantResult {
   participantId: string;
+  sessionId?: string;
+  sessionStatus?: SessionStatus;
+  reviewAccessEnabled?: boolean;
   score: number;
   maxScore: number;
   percentage: number;
@@ -175,4 +179,26 @@ export interface ParticipantResult {
   totalQuestions?: number;
   pendingGrading: number;
   gradingComplete: boolean;
+}
+
+export interface ParticipantReviewItem {
+  questionId: string;
+  type: QuestionType;
+  title: string;
+  body: string;
+  points: number;
+  answer: Record<string, unknown> | null;
+  score: number;
+  maxScore: number;
+  isCorrect: boolean | null;
+  feedback?: string;
+  aiInsight?: Record<string, unknown> | null;
+  answered: boolean;
+}
+
+export interface ParticipantReview {
+  participantId: string;
+  sessionId: string;
+  reviewAccessEnabled: boolean;
+  items: ParticipantReviewItem[];
 }

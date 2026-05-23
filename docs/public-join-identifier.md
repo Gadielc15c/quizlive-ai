@@ -28,6 +28,28 @@ GET /api/participant/:participantId/questions
 
 Este endpoint devuelve preguntas solo mientras la sesion esta `live` o `paused`. Si el tiempo del examen vencio, retorna `questions: []`.
 
+## Revision posterior
+
+Al entregar, el estudiante puede consultar:
+
+```http
+GET /api/participant/:participantId/result
+```
+
+La nota se muestra de inmediato. El detalle de respuestas queda bloqueado hasta que el docente habilite:
+
+```http
+POST /api/sessions/:sessionId/review-access
+```
+
+Luego el estudiante puede ver:
+
+```http
+GET /api/participant/:participantId/review
+```
+
+La revision muestra su respuesta, puntaje por pregunta, correcto/incorrecto y feedback IA cuando exista. No expone `correctAnswer`.
+
 ## QR nuevo
 
 El QR generado por:

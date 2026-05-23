@@ -128,6 +128,12 @@ export const api = {
   endSession: (id: string) =>
     request<QuizSession>(`/sessions/${id}/end`, { method: "POST" }),
 
+  setReviewAccess: (id: string, enabled: boolean) =>
+    request<QuizSession>(`/sessions/${id}/review-access`, {
+      method: "POST",
+      body: JSON.stringify({ enabled }),
+    }),
+
   sessionParticipants: (sessionId: string) =>
     request<import("./types").Participant[]>(
       `/participant/session/${sessionId}`,
@@ -178,6 +184,12 @@ export const api = {
   participantResult: (participantId: string) =>
     request<import("./types").ParticipantResult>(
       `/participant/${participantId}/result`,
+      { auth: false },
+    ),
+
+  participantReview: (participantId: string) =>
+    request<import("./types").ParticipantReview>(
+      `/participant/${participantId}/review`,
       { auth: false },
     ),
 };

@@ -112,6 +112,9 @@ export class ResponsesService {
 
     return {
       participantId,
+      sessionId: participant.sessionId,
+      sessionStatus: session.status,
+      reviewAccessEnabled: session.reviewAccessEnabled,
       score,
       maxScore,
       percentage: maxScore > 0 ? Number(((score / maxScore) * 100).toFixed(2)) : 0,
@@ -119,6 +122,52 @@ export class ResponsesService {
       totalQuestions: questions.length,
       pendingGrading,
       gradingComplete: pendingGrading === 0,
+    };
+  }
+
+  async getParticipantReview(participantId: string) {
+    const participant = await this.participantModel.findById(participantId).exec();
+    if (!participant) throw new NotFoundException("Participante no encontrado");
+
+    const session = await this.sessionsService.findOne(participant.sessionId);
+    if (!session.reviewAccessEnabled) {
+      return {
+        participantId,
+        sessionId: participant.sessionId,
+        reviewAccessEnabled: false,
+        items: [],
+      };
+    }
+
+    const [questions, responses] = await Promise.all([
+      this.questionsService.findByQuiz(session.quizId),
+      this.responseModel.find({ participantId }).exec(),
+    ]);
+    const responsesByQuestion = new Map(
+      responses.map((response) => [response.questionId, response]),
+    );
+
+    return {
+      participantId,
+      sessionId: participant.sessionId,
+      reviewAccessEnabled: true,
+      items: questions.map((question) => {
+        const response = responsesByQuestion.get(String(question._id));
+        return {
+          questionId: String(question._id),
+          type: question.type,
+          title: question.title,
+          body: question.body,
+          points: question.points,
+          answer: response?.answer ?? null,
+          score: response?.score ?? 0,
+          maxScore: question.points,
+          isCorrect: response?.isCorrect ?? null,
+          feedback: response?.feedback,
+          aiInsight: response?.aiFeedback ?? null,
+          answered: Boolean(response),
+        };
+      }),
     };
   }
 
