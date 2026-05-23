@@ -289,8 +289,8 @@ function QuestionCard({
           {question.points} pts
         </span>
       </div>
-      <h2 className="text-lg font-semibold">{question.title}</h2>
-      <p className="mt-1 text-sm leading-6 text-slate-700">{question.body}</p>
+      <h2 className="text-lg font-semibold">{String(question.title ?? "")}</h2>
+      <p className="mt-1 text-sm leading-6 text-slate-700">{String(question.body ?? "")}</p>
       <div className="mt-5">
         <StudentWidget question={question} answer={answer} onChange={onChange} />
       </div>
@@ -346,7 +346,7 @@ function Choice({ question, value, onChange }: { question: Question; value: stri
           onClick={() => onChange(option.id)}
           type="button"
         >
-          <span className="font-medium">{option.id}.</span> {option.label}
+          <span className="font-medium">{option.id}.</span> {String(option.label ?? "")}
         </button>
       ))}
     </div>
@@ -369,7 +369,7 @@ function MultiChoice({ question, values, onChange }: { question: Question; value
             }
             type="button"
           >
-            {selected ? "✓" : "□"} <span className="font-medium">{option.id}.</span> {option.label}
+            {selected ? "✓" : "□"} <span className="font-medium">{option.id}.</span> {String(option.label ?? "")}
           </button>
         );
       })}
@@ -441,7 +441,7 @@ function FillBlank({ question, answer, onChange }: { question: Question; answer?
 
   return (
     <div className="space-y-3">
-      <p className="rounded-md bg-slate-50 p-3 text-sm">{question.body}</p>
+      <p className="rounded-md bg-slate-50 p-3 text-sm">{String(question.body ?? "")}</p>
       {blanks.map((id) => (
         <input
           className="h-10 w-full rounded-md border px-3 text-sm outline-none focus:border-cyan-500"
@@ -460,12 +460,21 @@ function FillBlank({ question, answer, onChange }: { question: Question; answer?
 }
 
 function Ordering({ question, answer, onChange }: { question: Question; answer?: AnswerValue; onChange: (answer: AnswerValue) => void }) {
-  const initial = Array.isArray(question.metadata?.items)
-    ? (question.metadata?.items as string[])
+  const toStr = (v: unknown) =>
+    typeof v === "string"
+      ? v
+      : v && typeof v === "object" && "text" in (v as Record<string, unknown>)
+        ? String((v as { text: unknown }).text)
+        : String(v);
+  const initialRaw = Array.isArray(question.metadata?.items)
+    ? (question.metadata?.items as unknown[])
     : Array.isArray(question.metadata?.blocks)
-      ? (question.metadata?.blocks as string[])
+      ? (question.metadata?.blocks as unknown[])
       : [];
-  const ordered = Array.isArray(answer?.ordered) ? (answer?.ordered as string[]) : initial;
+  const initial = initialRaw.map(toStr);
+  const ordered = Array.isArray(answer?.ordered)
+    ? (answer?.ordered as unknown[]).map(toStr)
+    : initial;
 
   const move = (from: number, to: number) => {
     const next = [...ordered];
@@ -497,9 +506,10 @@ function Ordering({ question, answer, onChange }: { question: Question; answer?:
 }
 
 function Matching({ question, answer, onChange }: { question: Question; answer?: AnswerValue; onChange: (answer: AnswerValue) => void }) {
-  const pairs = Array.isArray(question.metadata?.pairs)
-    ? (question.metadata?.pairs as Array<{ left: string; right: string }>)
+  const rawPairs = Array.isArray(question.metadata?.pairs)
+    ? (question.metadata?.pairs as Array<Record<string, unknown>>)
     : [];
+  const pairs = rawPairs.map((p) => ({ left: String(p.left ?? ""), right: String(p.right ?? "") }));
   const rights = pairs.map((pair) => pair.right);
   const current = Array.isArray(answer?.pairs) ? (answer?.pairs as Array<{ left: string; right: string }>) : [];
 
@@ -529,8 +539,12 @@ function Matching({ question, answer, onChange }: { question: Question; answer?:
 }
 
 function Matrix({ question, answer, onChange }: { question: Question; answer?: AnswerValue; onChange: (answer: AnswerValue) => void }) {
-  const rows = Array.isArray(question.metadata?.rows) ? (question.metadata?.rows as string[]) : [];
-  const cols = Array.isArray(question.metadata?.cols) ? (question.metadata?.cols as string[]) : [];
+  const rows = Array.isArray(question.metadata?.rows)
+    ? (question.metadata?.rows as unknown[]).map((v) => String(v))
+    : [];
+  const cols = Array.isArray(question.metadata?.cols)
+    ? (question.metadata?.cols as unknown[]).map((v) => String(v))
+    : [];
   const current = Array.isArray(answer?.matrix) ? (answer?.matrix as Array<{ row: string; value: string }>) : [];
 
   return (
