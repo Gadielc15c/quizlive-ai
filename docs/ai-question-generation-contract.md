@@ -15,6 +15,11 @@ Cada pregunta generada debe incluir:
 - `rubric` cuando aplique
 - `correctAnswer` cuando sea autocalificable o tenga estructura esperada
 
+Las opciones deben separar identificador y texto. `id` guarda la letra o clave
+(`A`, `B`, `C`); `label` no debe repetir ese prefijo. Correcto:
+`{ "id": "A", "label": "TCP garantiza entrega" }`. Incorrecto:
+`{ "id": "A", "label": "A. TCP garantiza entrega" }`.
+
 ## Tipos y estructura
 
 `multiple_choice`

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { getDisplayOptionLabel } from "@/lib/question-options";
 
 type Question = {
   _id: string;
@@ -346,7 +347,7 @@ function Choice({ question, value, onChange }: { question: Question; value: stri
           onClick={() => onChange(option.id)}
           type="button"
         >
-          <span className="font-medium">{option.id}.</span> {String(option.label ?? "")}
+          <span className="font-medium">{option.id}.</span> {getDisplayOptionLabel(option)}
         </button>
       ))}
     </div>
@@ -369,7 +370,7 @@ function MultiChoice({ question, values, onChange }: { question: Question; value
             }
             type="button"
           >
-            {selected ? "✓" : "□"} <span className="font-medium">{option.id}.</span> {String(option.label ?? "")}
+            {selected ? "✓" : "□"} <span className="font-medium">{option.id}.</span> {getDisplayOptionLabel(option)}
           </button>
         );
       })}

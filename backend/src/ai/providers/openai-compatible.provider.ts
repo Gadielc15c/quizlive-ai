@@ -273,7 +273,10 @@ export class OpenAiCompatibleProvider implements LlmProvider {
       options: Array.isArray(q.options)
         ? (q.options as Array<Record<string, unknown>>).map((o, optionIndex) => ({
             id: String(o.id ?? String.fromCharCode(65 + optionIndex)),
-            label: String(o.label ?? ""),
+            label: this.cleanOptionLabel(
+              String(o.label ?? ""),
+              String(o.id ?? String.fromCharCode(65 + optionIndex)),
+            ),
           }))
         : undefined,
       correctAnswer:
@@ -409,6 +412,22 @@ export class OpenAiCompatibleProvider implements LlmProvider {
     ];
   }
 
+  private cleanOptionLabel(label: string, id: string) {
+    const trimmedLabel = label.trim();
+    const trimmedId = id.trim();
+    if (!trimmedLabel || !trimmedId) return trimmedLabel;
+    if (trimmedLabel.toLowerCase() === trimmedId.toLowerCase()) return "";
+
+    const escapedId = this.escapeRegExp(trimmedId);
+    return trimmedLabel
+      .replace(new RegExp(`^${escapedId}\\s*[.)\\-:]\\s*`, "i"), "")
+      .trim();
+  }
+
+  private escapeRegExp(value: string) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
   private ensureValueAnswer(answer: Record<string, unknown>, fallback: string) {
     return { value: String(answer?.value ?? fallback) };
   }
@@ -442,4 +461,3 @@ export class OpenAiCompatibleProvider implements LlmProvider {
     };
   }
 }
-

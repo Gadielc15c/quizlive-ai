@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
+import { getDisplayOptionLabel } from "@/lib/question-options";
 import { getTeacherAuthHeaders } from "../../../lib/auth";
 
 type Quiz = {
@@ -528,7 +529,7 @@ function MultipleChoicePreview({ question }: { question: Question }) {
         >
           <input checked={value === option.id} readOnly type="radio" />
           <span className="font-medium">{option.id}.</span>
-          <span>{option.label}</span>
+          <span>{getDisplayOptionLabel(option)}</span>
         </label>
       ))}
     </div>
@@ -548,7 +549,7 @@ function MultipleSelectPreview({ question }: { question: Question }) {
         >
           <input checked={values.includes(option.id)} readOnly type="checkbox" />
           <span className="font-medium">{option.id}.</span>
-          <span>{option.label}</span>
+          <span>{getDisplayOptionLabel(option)}</span>
         </label>
       ))}
     </div>

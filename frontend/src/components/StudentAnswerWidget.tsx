@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { getDisplayOptionLabel } from "@/lib/question-options";
 import type { Question } from "@/lib/types";
 
 export type AnswerValue = Record<string, unknown>;
@@ -154,7 +155,7 @@ function Choice({
           onClick={() => onChange(option.id)}
           type="button"
         >
-          <span className="font-medium">{option.id}.</span> {option.label}
+          <span className="font-medium">{option.id}.</span> {getDisplayOptionLabel(option)}
         </button>
       ))}
     </div>
@@ -197,7 +198,7 @@ function MultiChoice({
             type="button"
           >
             <span className="mr-2 font-mono">{selected ? "[x]" : "[ ]"}</span>
-            <span className="font-medium">{option.id}.</span> {option.label}
+            <span className="font-medium">{option.id}.</span> {getDisplayOptionLabel(option)}
           </button>
         );
       })}
