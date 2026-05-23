@@ -63,6 +63,7 @@ export interface Question {
   instructions?: string;
   points: number;
   options?: QuestionOption[];
+  metadata?: Record<string, unknown>;
 }
 
 export type SessionStatus = "waiting" | "live" | "paused" | "ended";

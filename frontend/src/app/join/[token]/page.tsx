@@ -577,23 +577,32 @@ function Matrix({ question, answer, onChange }: { question: Question; answer?: A
 
 function PromptEditor({ question, answer, onChange }: { question: Question; answer?: AnswerValue; onChange: (answer: AnswerValue) => void }) {
   const variables = (question.metadata?.variables ?? {}) as Record<string, { value: unknown; type: string; description?: string }>;
+  const requiredVars = Array.isArray(question.metadata?.requiredVariables)
+    ? (question.metadata?.requiredVariables as string[])
+    : [];
   const [text, setText] = useState(String(answer?.answer ?? ""));
   const [query, setQuery] = useState("");
   const [showMenu, setShowMenu] = useState(false);
 
   const keys = Object.keys(variables);
-  const filtered = keys.filter((key) => key.includes(query.toLowerCase()));
-  const usedVariables = Array.from(new Set([...text.matchAll(/\{([a-zA-Z0-9_]+)\}/g)].map((match) => match[1])));
-  const renderedPrompt = text.replace(/\{([a-zA-Z0-9_]+)\}/g, (_match, key: string) =>
-    variables[key] ? String(variables[key].value) : `{${key}}`,
+  const filtered = keys.filter((key) => key.toLowerCase().includes(query.toLowerCase()));
+  const usedVariables = Array.from(new Set([...text.matchAll(/\{([a-zA-Z0-9_]+)\}/g)].map((m) => m[1])));
+  const missingRequired = requiredVars.filter((v) => !usedVariables.includes(v));
+  const renderedPrompt = text.replace(/\{([a-zA-Z0-9_]+)\}/g, (_m, key: string) =>
+    variables[key] ? `[${String(variables[key].value)}]` : `{${key}}`,
   );
+  const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
 
   const update = (next: string) => {
     setText(next);
     const match = next.match(/\{([a-zA-Z0-9_]*)$/);
     setShowMenu(Boolean(match));
     setQuery(match?.[1] ?? "");
-    onChange({ answer: next, usedVariables, renderedPrompt });
+    const used = Array.from(new Set([...next.matchAll(/\{([a-zA-Z0-9_]+)\}/g)].map((m) => m[1])));
+    const rendered = next.replace(/\{([a-zA-Z0-9_]+)\}/g, (_m, k: string) =>
+      variables[k] ? String(variables[k].value) : `{${k}}`,
+    );
+    onChange({ answer: next, usedVariables: used, renderedPrompt: rendered });
   };
 
   const insert = (key: string) => {
@@ -603,47 +612,100 @@ function PromptEditor({ question, answer, onChange }: { question: Question; answ
   };
 
   return (
-    <div className="space-y-3">
-      <div className="relative rounded-md border bg-slate-50 p-3 focus-within:border-cyan-500">
-        <textarea
-          className="min-h-32 w-full bg-transparent text-sm outline-none"
-          onChange={(event) => update(event.target.value)}
-          placeholder="Escribe un prompt. Usa { para insertar variables."
-          value={text}
-        />
-        {showMenu ? (
-          <div className="absolute left-3 top-full z-10 mt-2 w-72 rounded-md border bg-white p-2 shadow-lg">
+    <div className="space-y-4">
+      {/* Variable reference panel */}
+      <div className="rounded-md border bg-slate-50 p-3">
+        <p className="mb-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Variables disponibles</p>
+        <div className="flex flex-wrap gap-2">
+          {keys.map((key) => {
+            const isRequired = requiredVars.includes(key);
+            const isUsed = usedVariables.includes(key);
+            return (
+              <button
+                className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs transition hover:-translate-y-0.5 ${
+                  isUsed
+                    ? "border-emerald-400 bg-emerald-50 text-emerald-700"
+                    : isRequired
+                      ? "border-amber-400 bg-amber-50 text-amber-700"
+                      : "border-slate-200 bg-white text-slate-700"
+                }`}
+                key={key}
+                onClick={() => update(text.endsWith(" ") || !text ? `${text}{${key}}` : `${text} {${key}}`)}
+                title={variables[key].description}
+                type="button"
+              >
+                <span className="font-mono font-semibold">{`{${key}}`}</span>
+                <span className="text-slate-400">·</span>
+                <span className="max-w-24 truncate">{String(variables[key].value)}</span>
+                {isRequired && !isUsed && <span className="ml-1 rounded bg-amber-200 px-1 text-amber-800">requerida</span>}
+                {isUsed && <span className="ml-1 text-emerald-600">✓</span>}
+              </button>
+            );
+          })}
+        </div>
+        {requiredVars.length > 0 && (
+          <p className="mt-2 text-xs text-slate-500">
+            Variables requeridas: {requiredVars.map((v) => `{${v}}`).join(", ")}
+          </p>
+        )}
+      </div>
+
+      {/* Editor */}
+      <div className="relative">
+        <div className={`rounded-md border transition focus-within:ring-2 ${
+          missingRequired.length > 0 ? "border-amber-300 focus-within:ring-amber-200" : "border-slate-200 focus-within:border-cyan-500 focus-within:ring-cyan-100"
+        } bg-white`}>
+          <textarea
+            className="min-h-36 w-full resize-y rounded-md bg-transparent px-3 py-2 text-sm outline-none"
+            onChange={(event) => update(event.target.value)}
+            placeholder={`Escribe tu prompt aqui. Escribe { para ver las variables o haz clic en ellas arriba.\n\nEjemplo: "Analiza el comportamiento de {variable1} cuando..."`}
+            value={text}
+          />
+          <div className="flex items-center justify-between border-t px-3 py-2 text-xs text-slate-400">
+            <span>{wordCount} palabras</span>
+            {text && missingRequired.length === 0 && (
+              <span className="text-emerald-600 font-medium">Todas las variables requeridas usadas ✓</span>
+            )}
+            {text && missingRequired.length > 0 && (
+              <span className="text-amber-600">Faltan: {missingRequired.map((v) => `{${v}}`).join(", ")}</span>
+            )}
+          </div>
+        </div>
+
+        {/* Autocomplete dropdown */}
+        {showMenu && filtered.length > 0 && (
+          <div className="absolute left-0 top-full z-20 mt-1 w-80 rounded-md border bg-white shadow-xl">
+            <p className="border-b px-3 py-2 text-xs font-medium text-slate-500">Variables</p>
             {filtered.map((key) => (
               <button
-                className="block w-full rounded px-2 py-1 text-left text-xs hover:bg-slate-50"
+                className="flex w-full items-start gap-3 px-3 py-2.5 text-left hover:bg-slate-50"
                 key={key}
                 onClick={() => insert(key)}
                 type="button"
               >
-                {`{${key}}`} - {String(variables[key].value)}
+                <span className="mt-0.5 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs font-semibold">{`{${key}}`}</span>
+                <div>
+                  <p className="text-sm font-medium">{String(variables[key].value)}</p>
+                  {variables[key].description && (
+                    <p className="text-xs text-slate-400">{variables[key].description}</p>
+                  )}
+                </div>
+                {requiredVars.includes(key) && (
+                  <span className="ml-auto shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">requerida</span>
+                )}
               </button>
             ))}
           </div>
-        ) : null}
+        )}
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {keys.map((key) => (
-          <button
-            className="rounded-full border bg-white px-3 py-1 text-xs hover:bg-cyan-50"
-            key={key}
-            onClick={() => update(`${text}{${key}}`)}
-            title={variables[key].description}
-            type="button"
-          >
-            {key}
-          </button>
-        ))}
-      </div>
-
-      <div className="rounded-md bg-slate-950 p-3 text-xs text-white">
-        Preview: {renderedPrompt || "Sin texto"}
-      </div>
+      {/* Preview rendered */}
+      {text && (
+        <div className="rounded-md border border-slate-200 bg-slate-950 p-4">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Preview con valores reales</p>
+          <p className="whitespace-pre-wrap text-sm leading-6 text-white">{renderedPrompt}</p>
+        </div>
+      )}
     </div>
   );
 }
